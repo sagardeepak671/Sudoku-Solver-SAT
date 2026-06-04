@@ -1,0 +1,16 @@
+# Ignore everything by default
+*
+
+# Allow directories so negated patterns can match
+!*/
+
+# Keep this .gitignore itself
+!.gitignore
+
+# Allow C++ source files and the top-level Makefile
+!*.cpp
+!Makefile
+
+# Optional: ignore build artifacts (redundant when everything is ignored)
+# *.o
+# build/

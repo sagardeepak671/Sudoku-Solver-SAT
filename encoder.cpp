@@ -24,11 +24,34 @@
 #include <vector>
 #include <sstream>
 #include <cmath>
+#include <cctype>
 
 using namespace std;
 
 vector<vector<int>> clauseList;
 vector<vector<int>> board;
+
+static bool parseSudokuRow(const string& line, vector<int>& row) {
+    string digits;
+    auto flushDigits = [&]() {
+        if (!digits.empty()) {
+            row.push_back(stoi(digits));
+            digits.clear();
+        }
+    };
+    for (char ch : line) {
+        if (isdigit(static_cast<unsigned char>(ch))) {
+            digits.push_back(ch);
+        } else if (ch == '.') {
+            flushDigits();
+            row.push_back(0);
+        } else {
+            flushDigits();
+        }
+    }
+    flushDigits();
+    return !row.empty();
+}
 
 static bool isPerfectSquare(int x) {
     int r = static_cast<int>(sqrt(x));
@@ -88,9 +111,10 @@ void generate2(){
         }
     }
 }
+ 
 
 void generate3(){
-    // for each number k, it must appear at least once in each row
+    // For each number k, at least one occurrence in each row
     int N = board.size(); 
     for (int k = 1; k <= N; k++){
         for (int i = 0; i < N; i++){
@@ -104,7 +128,7 @@ void generate3(){
 }
 
 void generate4(){
-    // for each number k, it must appear at least once in each column
+    // For each number k, at least one occurrence in each column
     int N = board.size(); 
     for (int k = 1; k <= N; k++){
         for (int j = 0; j < N; j++){
@@ -118,7 +142,7 @@ void generate4(){
 }
 
 void generate5(){
-    // for each number k, it must appear at least once in each n* n subgrid
+    // For each number k, at least one occurrence in each n*n subgrid
     int N = board.size(); 
     int n = sqrt(N);
     for (int k = 1; k <= N; k++){
@@ -206,58 +230,18 @@ void generate9(){
             }
         }
     }
-} 
-void generate10(){
-    // if a[i][j] = true , its set , then it must be unset for that row,col,subgrid
-    int N = board.size();
-    for(int i = 0; i < N; i++){
-        for(int j = 0; j < N; j++){
-            // setting a[i][j] = true
-            vector<int> clause;
-            clause.push_back(i * N * N + j * N + board[i][j]);
-            for(int row = 0; row < N; row++){
-                if(row != i){
-                    clause.push_back(-(row * N * N + j * N + board[i][j]));
-                }
-            }
-            clauseList.push_back(clause);
-            clause.clear();
-            clause.push_back(i * N * N + j * N + board[i][j]);
-            for(int col = 0; col < N; col++){
-                if(col != j){
-                    clause.push_back(-(i * N * N + col * N + board[i][j]));
-                }
-            }
-            clauseList.push_back(clause);
-             clause.clear();
-            clause.push_back(i * N * N + j * N + board[i][j]);
-             int n = sqrt(N);
-            int blockRow = i / n;
-            int blockCol = j / n;
-
-
-            for(int row = blockRow * n; row < (blockRow + 1) * n; row++){
-                for(int col = blockCol * n; col < (blockCol + 1) * n; col++){
-                    if(row != i && col != j){
-                        clause.push_back(-(row * N * N + col * N + board[i][j]));
-                    }
-                }
-            }
-            clauseList.push_back(clause);
-        }
-    }
 }
 
 void generateClauses(){
-    generate1();
-    generate2();
-    generate3();
-    generate4();
-    generate5();
-    generate6();
-    generate7();
-    generate8();
-    generate9(); 
+    generate9();  // Pre-filled cells
+    generate1();  // At least one digit per cell
+    generate2();  // At most one digit per cell
+    generate3();  // At least one occurrence of digit k in row
+    generate4();  // At least one occurrence of digit k in column
+    generate5();  // At least one occurrence of digit k in box
+    generate6();  // At most one occurrence of digit k in row
+    generate7();  // At most one occurrence of digit k in column
+    generate8();  // At most one occurrence of digit k in box
 }
 
 int main(){
@@ -270,11 +254,7 @@ int main(){
     string line;
     while (getline(file, line)) {
         vector<int> row;
-        stringstream ss(line);
-        int num;
-        while (ss >> num) {
-            row.push_back(num);
-        }
+        parseSudokuRow(line, row);
         if (!row.empty()) board.push_back(row);
     }
     file.close();

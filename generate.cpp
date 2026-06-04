@@ -10,6 +10,7 @@
 #include <random>
 #include <ctime>
 #include <set>
+#include <iomanip>
 using namespace std;
 
 class Generator {
@@ -52,11 +53,32 @@ void Generator::generate() {
 void Generator::writeToFile(const string& filename) {
     ofstream file(filename);
 
-    for (const auto& row : board) {
-        for (const auto& num : row) {
-            file << num << " ";
+    int blockSize = n;
+    int cellWidth = (int)to_string(N).size();
+
+    auto writeBorder = [&]() {
+        file << '+';
+        for (int block = 0; block < blockSize; ++block) {
+            for (int i = 0; i < blockSize * (cellWidth + 2); ++i) {
+                file << '-';
+            }
+            file << '+';
         }
         file << '\n';
+    };
+
+    writeBorder();
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            if (j % blockSize == 0) file << "| ";
+            if (board[i][j] == 0) {
+                file << ' ' << setw(cellWidth) << '.';
+            } else {
+                file << ' ' << setw(cellWidth) << board[i][j];
+            }
+        }
+        file << " |\n";
+        if ((i + 1) % blockSize == 0) writeBorder();
     }
 }
 void Generator::fillBoard()

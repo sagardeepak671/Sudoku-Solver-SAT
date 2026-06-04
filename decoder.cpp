@@ -8,6 +8,7 @@
 #include <sstream>
 #include <string>
 #include <cctype>
+#include <iomanip>
 using namespace std;
 
 // decoder.cpp
@@ -94,10 +95,25 @@ int main(int argc, char** argv) {
 		cerr << "Failed to open " << out_file << " for writing\n";
 		return 1;
 	}
+	int n = (int)round(sqrt(N));
+	int cellWidth = (int)to_string(N).size();
+	auto writeBorder = [&]() {
+		out << '+';
+		for (int block = 0; block < n; ++block) {
+			for (int i = 0; i < n * (cellWidth + 2); ++i) out << '-';
+			out << '+';
+		}
+		out << '\n';
+	};
+
+	writeBorder();
 	for (int i = 0; i < N; ++i) {
 		for (int j = 0; j < N; ++j) {
-			out << grid[i][j] << (j+1==N? '\n':' ');
+			if (j % n == 0) out << "| ";
+			out << ' ' << setw(cellWidth) << grid[i][j];
 		}
+		out << " |\n";
+		if ((i + 1) % n == 0) writeBorder();
 	}
 	out.close();
 	cout << "Wrote solved board to " << out_file << "\n";

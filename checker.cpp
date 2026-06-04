@@ -2,7 +2,31 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <cmath>
+#include <cctype>
 using namespace std;
+
+static bool parseSudokuRow(const string& line, vector<int>& row) {
+	string digits;
+	auto flushDigits = [&]() {
+		if (!digits.empty()) {
+			row.push_back(stoi(digits));
+			digits.clear();
+		}
+	};
+	for (char ch : line) {
+		if (isdigit(static_cast<unsigned char>(ch))) {
+			digits.push_back(ch);
+		} else if (ch == '.') {
+			flushDigits();
+			row.push_back(0);
+		} else {
+			flushDigits();
+		}
+	}
+	flushDigits();
+	return !row.empty();
+}
 
 // Usage: ./checker [solved_sudoku.txt]
 // Default file: solved_sudoku.txt
@@ -20,8 +44,7 @@ int main(int argc, char** argv) {
 		if (line.empty()) continue;
 		stringstream ss(line);
 		vector<int> row;
-		int x;
-		while (ss >> x) row.push_back(x);
+		parseSudokuRow(line, row);
 		if (!row.empty()) board.push_back(row);
 	}
 	in.close();

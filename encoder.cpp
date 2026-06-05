@@ -135,10 +135,64 @@ void amo_ladder(const vector<int>& vars) {
     addClause({-s[m-2], -vars[m-1]});
 }
 
-// use pairwise for N<=9 (fewer clauses), ladder for N>9 (far fewer clauses)
+// Commander AMO encoding (Klieber & Kwon 2007)
+// Groups vars into chunks of size GROUP_SIZE, applies pairwise AMO within each
+// group, introduces one commander variable per group, and recurses on commanders.
+// This yields a logarithmic-depth dependency tree instead of a linear chain,
+// making it far easier for CDCL solvers to prune large swaths of the search
+// space with a single branching decision.
+//
+// Reference: Klieber & Kwon 2007 "Efficient CNF Encoding for Selecting 1 of N Objects"
+void amo_commander(const vector<int>& vars);
+
+static const int CMD_GROUP = 3;   // group size; 3 gives shallower tree than 4
+
+void amo_commander(const vector<int>& vars) {
+    int m = (int)vars.size();
+    if (m <= 1) return;
+    if (m <= CMD_GROUP) { amo_pairwise(vars); return; }
+
+    // Partition into groups of CMD_GROUP (last group may be smaller)
+    int numGroups = (m + CMD_GROUP - 1) / CMD_GROUP;
+    vector<int> commanders(numGroups);
+
+    for (int g = 0; g < numGroups; g++) {
+        int lo = g * CMD_GROUP;
+        int hi = min(lo + CMD_GROUP, m);   // exclusive
+        vector<int> grp(vars.begin() + lo, vars.begin() + hi);
+
+        // (a) AMO within the group (pairwise — groups are small)
+        amo_pairwise(grp);
+
+        // (b) Introduce commander variable c for this group
+        int c = nextAux++;
+        commanders[g] = c;
+
+        // (c) If any member of group is true → c must be true
+        //     i.e. for each x in grp: (-x ∨ c)
+        for (int x : grp) addClause({-x, c});
+
+        // (d) c can only be true if at least one member is true
+        //     i.e. (-c ∨ x₀ ∨ x₁ ∨ …) — the ALO clause for the group
+        //     This keeps c tightly bound so the solver can't set c freely.
+        vector<int> alo_grp;
+        alo_grp.push_back(-c);
+        for (int x : grp) alo_grp.push_back(x);
+        addClause(alo_grp);
+    }
+
+    // (e) Recurse: AMO over the commander variables themselves
+    amo_commander(commanders);
+}
+
+// AMO dispatch:
+//   N ≤ 9  → pairwise   (O(N²) clauses, zero aux vars)
+//   9 < N ≤ 16 → ladder (O(N) clauses, N-1 aux vars, linear chain)
+//   N > 16 → commander  (O(N) clauses, ⌈N/g⌉ aux vars, tree-depth O(log N))
 void amo(const vector<int>& vars) {
-    if (N <= 9) amo_pairwise(vars);
-    else        amo_ladder(vars);
+    if (N <= 9)  amo_pairwise(vars);
+    else if (N <= 16) amo_ladder(vars);
+    else         amo_commander(vars);
 }
 
 // ------------------------------------------------------------------
@@ -284,17 +338,22 @@ void generate8() {
 }
 
 void generateClauses() {
-    // optimal ordering for fastest SAT propagation:
-    generate9();        // 1. unit clues -> solver fixes all given cells immediately (no branching)
-    generateGreedy();   // 2. greedy eliminations -> free BCP from every clue
-    generate2();        // 3. AMO cell  (binary/ternary ladder clauses)
-    generate6();        // 4. AMO row   (binary/ternary ladder clauses)
-    generate7();        // 5. AMO col   (binary/ternary ladder clauses)
-    generate8();        // 6. AMO box   (binary/ternary ladder clauses)
-    generate1();        // 7. ALO cell  (long clauses of size N)
-    generate3();        // 8. ALO row   (long clauses of size N)
-    generate4();        // 9. ALO col   (long clauses of size N)
-    generate5();        // 10. ALO box  (long clauses of size N)
+    // Clause ordering: unit clues first so the solver fixes all given cells
+    // during BCP initialization before any branching begins.
+    generate9();        // 1. unit clues  — solver propagates these for free via BCP
+    // generateGreedy(); // DISABLED: Kissat's two-watched-literal BCP derives all of
+    //                   // these eliminations natively in its init pass with near-zero
+    //                   // overhead. Emitting them explicitly bloats the CNF by tens-to-
+    //                   // hundreds of thousands of redundant unit clauses for large N,
+    //                   // wasting parse time and memory without any solving benefit.
+    generate2();        // 2. AMO cell  (pairwise / ladder / commander)
+    generate6();        // 3. AMO row   (pairwise / ladder / commander)
+    generate7();        // 4. AMO col   (pairwise / ladder / commander)
+    generate8();        // 5. AMO box   (pairwise / ladder / commander)
+    generate1();        // 6. ALO cell  (long clauses of size N)
+    generate3();        // 7. ALO row   (long clauses of size N)
+    generate4();        // 8. ALO col   (long clauses of size N)
+    generate5();        // 9. ALO box   (long clauses of size N)
 }
 
 int main() {
@@ -341,11 +400,11 @@ int main() {
     nextAux = N * N * N + 1;
     numClauses = 0;
 
-    // total variable count:
-    //   base: N^3
-    //   ladder aux (N>9): 4 AMO groups x N^2 calls x (N-1) aux vars each
-    long numVars = (long)N * N * N;
-    if (N > 9) numVars += 4LL * N * N * (N - 1);
+    // numVars is determined dynamically after clause generation because the
+    // aux-variable count depends on which AMO encoding is active (pairwise has
+    // zero aux vars, ladder has N-1 per call, commander has a recursive tree).
+    // We write a placeholder here and patch it in the header seek-back below.
+    long numVars = 0;  // filled in after generateClauses() updates nextAux
 
     outFile.open("clauses.cnf");
     if (!outFile.is_open()) {
@@ -365,6 +424,10 @@ int main() {
     clauseBuf.reserve(BATCH_SIZE + 100);
     generateClauses();
     flush();  // flush any remaining clauses in the buffer
+
+    // Now that all clauses (and aux variables) have been generated,
+    // compute the true variable count from the aux-variable counter.
+    numVars = (long)(nextAux - 1);
 
     // seek back to the placeholder and overwrite with real values
     outFile.seekp(headerPos);

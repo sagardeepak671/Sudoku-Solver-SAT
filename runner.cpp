@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     vector<Step> steps = {
         {"Generate",       "./generate " + to_string(n), 0, ""},
         {"Encode",         "./encoder",                   0, ""},
-        {"Solve (kissat)", "kissat --sat clauses.cnf > sat_output.txt", 0, ""},
+        {"Solve (kissat)", "kissat --sat --walkinitially=true --tier1=2 --tier2=5 clauses.cnf > sat_output.txt", 0, ""},
         {"Decode",         "./decoder",                   0, ""},
         {"Check",          "./checker",                   0, ""},
 

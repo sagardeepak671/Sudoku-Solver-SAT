@@ -1,6 +1,7 @@
 /* HOW TO COMPILE AND RUN 
-1) g++ -o generate generate.cpp
-2) ./generate
+1) g++ -std=c++17 -O3 -march=native -funroll-loops -fomit-frame-pointer -DNDEBUG -o generate generate.cpp
+2) ./generate          (interactive)
+   ./generate 3        (CLI: n=3 → 9×9 board, used by runner)
 */
 
 #include <iostream>
@@ -11,7 +12,49 @@
 #include <ctime>
 #include <set>
 #include <iomanip>
+#include <string>
+#include <cmath>
 using namespace std;
+
+// write a sudoku board with unicode box-drawing to any ostream
+// useColor=true adds ANSI codes (for terminal), false = plain text (for files)
+void printBoard(ostream& out, const vector<vector<int>>& b, bool solved = false, bool useColor = false) {
+    int N = (int)b.size();
+    int n = (int)sqrt(N);
+    int digits = (int)to_string(N).size();
+    int w      = digits + 1;
+    int boxW   = n * w + 1;
+
+    auto hline = [&](const char* l, const char* mid, const char* r) {
+        out << l;
+        for (int bc = 0; bc < n; bc++) {
+            for (int x = 0; x < boxW; x++) out << "═";
+            if (bc < n - 1) out << mid;
+        }
+        out << r << "\n";
+    };
+
+    hline("╔", "╦", "╗");
+    for (int i = 0; i < N; i++) {
+        if (i > 0 && i % n == 0) hline("╠", "╬", "╣");
+        for (int j = 0; j < N; j++) {
+            if (j % n == 0) out << "║ ";
+            if (useColor && solved) {
+                out << "\033[92m" << setw(digits) << b[i][j] << "\033[0m" << " ";
+            } else if (useColor && b[i][j] == 0) {
+                out << "\033[2m"  << setw(digits) << "." << "\033[0m" << " ";
+            } else if (useColor) {
+                out << "\033[93;1m" << setw(digits) << b[i][j] << "\033[0m" << " ";
+            } else if (b[i][j] == 0) {
+                out << setw(digits) << "." << " ";
+            } else {
+                out << setw(digits) << b[i][j] << " ";
+            }
+        }
+        out << "║\n";
+    }
+    hline("╚", "╩", "╝");
+}
 
 class Generator {
 public:
@@ -28,14 +71,6 @@ private:
 
     void fillBoard();
     void removeNumbers();
-    void debugPrint(){
-        for (const auto& row : board) {
-            for (const auto& num : row) {
-                cout << num << " ";
-            }
-            cout << '\n';
-        }
-    }
 };
 Generator::Generator(int len) {
     this->n = len;
@@ -48,37 +83,27 @@ Generator::Generator(int len) {
 void Generator::generate() {
     fillBoard();
     removeNumbers();
+
+    // write both views to board_view.txt (no ANSI in file)
+    ofstream fout("board_view.txt");  // create / overwrite for each run
+    fout << "=== Generated Full Board ===\n";
+    // show full board: we need to temporarily restore removed numbers
+    // instead, just show the puzzle and note it in the file header
+    fout << "(puzzle view — run decoder to append solved board)\n";
+    fout << "\n=== Puzzle to Solve  (. = empty) ===\n";
+    printBoard(fout, board, false, false);
+    fout.close();
+
+    cout << "Puzzle written to sudoku.txt  |  Board view -> board_view.txt\n";
 }
 
 void Generator::writeToFile(const string& filename) {
     ofstream file(filename);
-
-    int blockSize = n;
-    int cellWidth = (int)to_string(N).size();
-
-    auto writeBorder = [&]() {
-        file << '+';
-        for (int block = 0; block < blockSize; ++block) {
-            for (int i = 0; i < blockSize * (cellWidth + 2); ++i) {
-                file << '-';
-            }
-            file << '+';
+    for (const auto& row : board) {
+        for (const auto& num : row) {
+            file << num << " ";
         }
         file << '\n';
-    };
-
-    writeBorder();
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            if (j % blockSize == 0) file << "| ";
-            if (board[i][j] == 0) {
-                file << ' ' << setw(cellWidth) << '.';
-            } else {
-                file << ' ' << setw(cellWidth) << board[i][j];
-            }
-        }
-        file << " |\n";
-        if ((i + 1) % blockSize == 0) writeBorder();
     }
 }
 void Generator::fillBoard()
@@ -194,10 +219,15 @@ void Generator::removeNumbers() {
     }
 } 
 
-int main(){
+int main(int argc, char** argv){
     int input;
-    cout << "Enter the size of the Sudoku (n for n x n blocks): ";
-    cin >> input;
+    if (argc > 1) {
+        // called from runner with size as CLI argument
+        input = atoi(argv[1]);
+    } else {
+        cout << "Enter the size of the Sudoku (n for n x n blocks): ";
+        cin >> input;
+    }
     Generator gen(input);
     gen.generate();
     gen.writeToFile("sudoku.txt");

@@ -15,6 +15,44 @@ using namespace std;
 // Usage: ./decoder [clauses.cnf] [sat_output.txt] [solved_sudoku.txt]
 // Defaults: clauses.cnf, sat_output.txt, solved_sudoku.txt
 
+void printBoard(ostream& out, const vector<vector<int>>& b, bool solved = false, bool useColor = false) {
+    int N = (int)b.size();
+    int n = (int)sqrt(N);
+    int digits = (int)to_string(N).size();
+    int w      = digits + 1;
+    int boxW   = n * w + 1;
+
+    auto hline = [&](const char* l, const char* mid, const char* r) {
+        out << l;
+        for (int bc = 0; bc < n; bc++) {
+            for (int x = 0; x < boxW; x++) out << "═";
+            if (bc < n - 1) out << mid;
+        }
+        out << r << "\n";
+    };
+
+    hline("╔", "╦", "╗");
+    for (int i = 0; i < N; i++) {
+        if (i > 0 && i % n == 0) hline("╠", "╬", "╣");
+        for (int j = 0; j < N; j++) {
+            if (j % n == 0) out << "║ ";
+            if (useColor && solved) {
+                out << "\033[92m" << setw(digits) << b[i][j] << "\033[0m" << " ";
+            } else if (useColor && b[i][j] == 0) {
+                out << "\033[2m"  << setw(digits) << "." << "\033[0m" << " ";
+            } else if (useColor) {
+                out << "\033[93;1m" << setw(digits) << b[i][j] << "\033[0m" << " ";
+            } else if (b[i][j] == 0) {
+                out << setw(digits) << "." << " ";
+            } else {
+                out << setw(digits) << b[i][j] << " ";
+            }
+        }
+        out << "║\n";
+    }
+    hline("╚", "╩", "╝");
+}
+
 int main(int argc, char** argv) {
 	string cnf_file = (argc > 1) ? argv[1] : "clauses.cnf";
 	string sat_file = (argc > 2) ? argv[2] : "sat_output.txt";
@@ -26,8 +64,13 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	int num_vars = 0;
+	int sudoku_N = 0;   // read from "c SUDOKU_N=" comment written by encoder
 	string line;
 	while (getline(cnf, line)) {
+		// check for SUDOKU_N comment (written by encoder when ladder AMO is used)
+		if (line.size() >= 11 && line.substr(0, 11) == "c SUDOKU_N=") {
+			sudoku_N = stoi(line.substr(11));
+		}
 		if (line.size() && line[0] == 'p') {
 			// p cnf <vars> <clauses>
 			stringstream ss(line);
@@ -42,11 +85,16 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	// compute N from num_vars = N^3
-	int N = round(cbrt((double)num_vars));
-	if (N * N * N != num_vars) {
-		cerr << "Unexpected number of variables: " << num_vars << " (not a perfect cube)\n";
-		return 1;
+	// compute N: prefer the SUDOKU_N comment (reliable when ladder AMO adds aux vars)
+	// fall back to cbrt for old CNF files that don't have the comment
+	int N = sudoku_N;
+	if (N <= 0) {
+		N = (int)round(cbrt((double)num_vars));
+		if ((long)N * N * N != (long)num_vars) {
+			cerr << "Unexpected number of variables: " << num_vars
+			     << " (not a perfect cube; regenerate with the updated encoder)\n";
+			return 1;
+		}
 	}
 
 	// read sat output and collect positive literals
@@ -89,31 +137,23 @@ int main(int argc, char** argv) {
 		if (i >= 0 && i < N && j >= 0 && j < N) grid[i][j] = k;
 	}
 
+	// append solved board to board_view.txt (no ANSI codes in file)
+	{
+		ofstream fout("board_view.txt", ios::app);
+		fout << "\n=== Decoder: Solved Sudoku ===\n";
+		printBoard(fout, grid, true, false);
+	}
+
 	// write output
 	ofstream out(out_file);
 	if (!out) {
 		cerr << "Failed to open " << out_file << " for writing\n";
 		return 1;
 	}
-	int n = (int)round(sqrt(N));
-	int cellWidth = (int)to_string(N).size();
-	auto writeBorder = [&]() {
-		out << '+';
-		for (int block = 0; block < n; ++block) {
-			for (int i = 0; i < n * (cellWidth + 2); ++i) out << '-';
-			out << '+';
-		}
-		out << '\n';
-	};
-
-	writeBorder();
 	for (int i = 0; i < N; ++i) {
 		for (int j = 0; j < N; ++j) {
-			if (j % n == 0) out << "| ";
-			out << ' ' << setw(cellWidth) << grid[i][j];
+			out << grid[i][j] << (j+1==N? '\n':' ');
 		}
-		out << " |\n";
-		if ((i + 1) % n == 0) writeBorder();
 	}
 	out.close();
 	cout << "Wrote solved board to " << out_file << "\n";

@@ -2,30 +2,47 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <iomanip>
 #include <cmath>
-#include <cctype>
+#include <string>
 using namespace std;
 
-static bool parseSudokuRow(const string& line, vector<int>& row) {
-	string digits;
-	auto flushDigits = [&]() {
-		if (!digits.empty()) {
-			row.push_back(stoi(digits));
-			digits.clear();
-		}
-	};
-	for (char ch : line) {
-		if (isdigit(static_cast<unsigned char>(ch))) {
-			digits.push_back(ch);
-		} else if (ch == '.') {
-			flushDigits();
-			row.push_back(0);
-		} else {
-			flushDigits();
-		}
-	}
-	flushDigits();
-	return !row.empty();
+void printBoard(ostream& out, const vector<vector<int>>& b, bool solved = false, bool useColor = false) {
+    int N = (int)b.size();
+    int n = (int)sqrt(N);
+    int digits = (int)to_string(N).size();
+    int w      = digits + 1;
+    int boxW   = n * w + 1;
+
+    auto hline = [&](const char* l, const char* mid, const char* r) {
+        out << l;
+        for (int bc = 0; bc < n; bc++) {
+            for (int x = 0; x < boxW; x++) out << "═";
+            if (bc < n - 1) out << mid;
+        }
+        out << r << "\n";
+    };
+
+    hline("╔", "╦", "╗");
+    for (int i = 0; i < N; i++) {
+        if (i > 0 && i % n == 0) hline("╠", "╬", "╣");
+        for (int j = 0; j < N; j++) {
+            if (j % n == 0) out << "║ ";
+            if (useColor && solved) {
+                out << "\033[92m" << setw(digits) << b[i][j] << "\033[0m" << " ";
+            } else if (useColor && b[i][j] == 0) {
+                out << "\033[2m"  << setw(digits) << "." << "\033[0m" << " ";
+            } else if (useColor) {
+                out << "\033[93;1m" << setw(digits) << b[i][j] << "\033[0m" << " ";
+            } else if (b[i][j] == 0) {
+                out << setw(digits) << "." << " ";
+            } else {
+                out << setw(digits) << b[i][j] << " ";
+            }
+        }
+        out << "║\n";
+    }
+    hline("╚", "╩", "╝");
 }
 
 // Usage: ./checker [solved_sudoku.txt]
@@ -44,7 +61,8 @@ int main(int argc, char** argv) {
 		if (line.empty()) continue;
 		stringstream ss(line);
 		vector<int> row;
-		parseSudokuRow(line, row);
+		int x;
+		while (ss >> x) row.push_back(x);
 		if (!row.empty()) board.push_back(row);
 	}
 	in.close();
@@ -56,6 +74,13 @@ int main(int argc, char** argv) {
 	for (auto &r : board) if ((int)r.size() != N) { cout << "Invalid: board not square\n"; return 1; }
 	int n = (int)round(sqrt(N));
 	if (n * n != N) { cout << "Invalid: board size not a perfect square\n"; return 1; }
+
+	// append verified board to board_view.txt (no ANSI codes in file)
+	{
+		ofstream fout("board_view.txt", ios::app);
+		fout << "\n=== Checker: Verified Solution ===\n";
+		printBoard(fout, board, true, false);
+	}
 
 	vector<int> seen(N+1);
 	// check rows
@@ -92,6 +117,6 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
-	cout << "Valid: solved Sudoku" << "\n";
+	cout << "✅ Valid: solved Sudoku" << "\n";
 	return 0;
 }

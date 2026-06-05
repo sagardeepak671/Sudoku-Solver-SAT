@@ -85,14 +85,15 @@ void writeClausesToFile(const string& filename) {
 }
 
 void generate1(){
-    // for each pre-filled cell (i, j) with number k, add a clause that states that this cell must be k
+    // For each cell (i, j), at least one number must be placed
     int N = board.size(); 
     for (int i = 0; i < N; i++){
         for (int j = 0; j < N; j++){
-            int num = board[i][j];
-            if (num != 0){
-                clauseList.push_back({i * N * N + j * N + num});
+            vector<int> clause;
+            for (int k = 1; k <= N; k++){
+                clause.push_back(i * N * N + j * N + k);
             }
+            clauseList.push_back(clause);
         }
     }
 }
@@ -218,18 +219,29 @@ void generate8(){
     }
 }
 
-
+void generate9(){
+    // for each pre-filled cell (i, j) with number k, add a clause that states that this cell must be k
+    int N = board.size(); 
+    for (int i = 0; i < N; i++){
+        for (int j = 0; j < N; j++){
+            int num = board[i][j];
+            if (num != 0){
+                clauseList.push_back({i * N * N + j * N + num});
+            }
+        }
+    }
+}
 
 void generateClauses(){
-    generate1();  // Pre-filled cells
-    generate2();  // At most one digit per ceßll
+    generate9();  // Pre-filled cells
+    generate1();  // At least one digit per cell
+    generate2();  // At most one digit per cell
+    generate3();  // At least one occurrence of digit k in row
+    generate4();  // At least one occurrence of digit k in column
+    generate5();  // At least one occurrence of digit k in box
     generate6();  // At most one occurrence of digit k in row
     generate7();  // At most one occurrence of digit k in column
     generate8();  // At most one occurrence of digit k in box
-    generate5();  // At least one occurrence of digit k in box
-    generate1();  // At least one digit per cell
-    generate3();  // At least one occurrence of digit k in row
-    generate4();  // At least one occurrence of digit k in column
 }
 
 int main(){

@@ -36,9 +36,10 @@ int main(int argc, char** argv) {
     vector<Step> steps = {
         {"Generate",       "./generate " + to_string(n), 0, ""},
         {"Encode",         "./encoder",                   0, ""},
-        {"Solve (kissat)", "kissat clauses.cnf > sat_output.txt", 0, ""},
+        {"Solve (kissat)", "kissat --sat clauses.cnf > sat_output.txt", 0, ""},
         {"Decode",         "./decoder",                   0, ""},
         {"Check",          "./checker",                   0, ""},
+
     };
 
     long long total_ms = 0;
@@ -106,7 +107,7 @@ int main(int argc, char** argv) {
     top_border("╠", "╬", "╣");
     cout << "║ " << left  << setw(WN) << "TOTAL"
          << " ║ " << right << setw(WT) << fmt(total_ms)
-         << " ║ " << left  << setw(WS) << "" << " ║\n";
+         << " ║ " << left  << setw(WS) << "✅" << "  ║\n";
     top_border("╚", "╩", "╝");
 
     cout << "\nBoard views (puzzle + solution) -> board_view.txt\n";

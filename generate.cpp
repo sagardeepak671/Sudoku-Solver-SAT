@@ -203,7 +203,7 @@ void Generator::removeNumbers() {
         percentageToRemove = dist21(rng);
     }
     
-
+    cout<<"🌷 Percentage of grid empty: "<<percentageToRemove<<"%\n";
     int cellsToRemove = (percentageToRemove * totalCells) / 100;
     vector<pair<int, int>> cells;
     for (int i = 0; i < N; ++i) {

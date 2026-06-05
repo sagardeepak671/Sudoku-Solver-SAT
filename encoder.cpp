@@ -287,14 +287,14 @@ void generateClauses() {
     // optimal ordering for fastest SAT propagation:
     generate9();        // 1. unit clues -> solver fixes all given cells immediately (no branching)
     generateGreedy();   // 2. greedy eliminations -> free BCP from every clue
-    generate1();        // 3. ALO cell
-    generate3();        // 4. ALO row
-    generate4();        // 5. ALO col
-    generate5();        // 6. ALO box
-    generate2();        // 7. AMO cell  (pairwise N<=9, ladder N>9)
-    generate6();        // 8. AMO row
-    generate7();        // 9. AMO col
-    generate8();        // 10. AMO box
+    generate2();        // 3. AMO cell  (binary/ternary ladder clauses)
+    generate6();        // 4. AMO row   (binary/ternary ladder clauses)
+    generate7();        // 5. AMO col   (binary/ternary ladder clauses)
+    generate8();        // 6. AMO box   (binary/ternary ladder clauses)
+    generate1();        // 7. ALO cell  (long clauses of size N)
+    generate3();        // 8. ALO row   (long clauses of size N)
+    generate4();        // 9. ALO col   (long clauses of size N)
+    generate5();        // 10. ALO box  (long clauses of size N)
 }
 
 int main() {

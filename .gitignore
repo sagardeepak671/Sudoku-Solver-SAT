@@ -10,6 +10,7 @@
 # Allow C++ source files and the top-level Makefile
 !*.cpp
 !Makefile
+!README.md
 
 # Optional: ignore build artifacts (redundant when everything is ignored)
 # *.o
